@@ -3,24 +3,92 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
 class AuthController {
+  static async register(req, res) {
+    try {
+      const { firstName, lastName, username, email, password } = req.body;
+
+      // Validation
+      if (!firstName || !lastName || !username || !email || !password) {
+        return res.status(400).json({ error: 'First name, last name, username, email, and password are required' });
+      }
+
+      if (password.length < 6) {
+        return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+      }
+
+      // Check if username is already taken
+      const existingUser = await User.findByUsername(username);
+      if (existingUser) {
+        return res.status(400).json({ error: 'Username already taken' });
+      }
+
+      // Check if email is already taken
+      const existingEmail = await User.findByEmail(email);
+      if (existingEmail) {
+        return res.status(400).json({ error: 'Email already registered' });
+      }
+
+      // Hash password
+      const password_hash = await bcrypt.hash(password, 10);
+
+      // Create user
+      const newUser = await User.create({
+        first_name: firstName,
+        last_name: lastName,
+        username,
+        email,
+        password_hash
+      });
+
+      // Generate JWT token
+      const token = jwt.sign(
+        { userId: newUser.id, username: newUser.username || newUser.name },
+        process.env.JWT_SECRET,
+        { expiresIn: '24h' }
+      );
+
+      res.status(201).json({
+        message: 'Registration successful',
+        token,
+        user: {
+          id: newUser.id,
+          firstName: newUser.first_name,
+          lastName: newUser.last_name,
+          username: newUser.username || newUser.name,
+          email: newUser.email,
+          name: newUser.name
+        }
+      });
+    } catch (error) {
+      console.error('Registration error:', error);
+      res.status(500).json({ error: 'Registration failed' });
+    }
+  }
+
   static async login(req, res) {
     try {
       const { username, password } = req.body;
 
-      // Simple authentication check
-      if (username !== process.env.ADMIN_USERNAME || password !== process.env.ADMIN_PASSWORD) {
+      // Validation
+      if (!username || !password) {
+        return res.status(400).json({ error: 'Username and password are required' });
+      }
+
+      // Find user by username
+      const user = await User.findByUsername(username);
+      if (!user) {
         return res.status(401).json({ error: 'Invalid credentials' });
       }
 
-      // Get admin user
-      const user = await User.findById(1);
-      if (!user) {
-        return res.status(404).json({ error: 'Admin user not found' });
+      // Check password
+      const isPasswordValid = await bcrypt.compare(password, user.password_hash);
+      if (!isPasswordValid) {
+        return res.status(401).json({ error: 'Invalid credentials' });
       }
 
       // Generate JWT token
       const token = jwt.sign(
-        { userId: user.id, email: user.email },
+        { userId: user.id, username: user.name },
         process.env.JWT_SECRET,
         { expiresIn: '24h' }
       );
@@ -30,8 +98,11 @@ class AuthController {
         token,
         user: {
           id: user.id,
-          name: user.name,
-          email: user.email
+          firstName: user.first_name,
+          lastName: user.last_name,
+          username: user.username || user.name,
+          email: user.email,
+          name: user.name
         }
       });
     } catch (error) {
@@ -50,8 +121,11 @@ class AuthController {
       res.json({
         user: {
           id: user.id,
-          name: user.name,
+          firstName: user.first_name,
+          lastName: user.last_name,
+          username: user.username || user.name,
           email: user.email,
+          name: user.name,
           created_at: user.created_at
         }
       });

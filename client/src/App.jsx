@@ -7,6 +7,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import { TaskProvider } from './contexts/TaskContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { AIProvider } from './contexts/AIContext';
+import { AuthProvider } from './contexts/AuthContext';
 
 // Pages
 import Dashboard from './pages/Dashboard';
@@ -18,11 +19,12 @@ import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
   return (
-    <Router>
-      <div className="App">
-        <TaskProvider>
-          <NotificationProvider>
-            <AIProvider>
+    <AuthProvider>
+      <Router>
+        <div className="App">
+          <TaskProvider>
+            <NotificationProvider>
+              <AIProvider>
               <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route
@@ -60,6 +62,7 @@ function App() {
         </TaskProvider>
       </div>
     </Router>
+    </AuthProvider>
   );
 }
 

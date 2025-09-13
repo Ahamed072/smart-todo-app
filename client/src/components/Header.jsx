@@ -1,14 +1,17 @@
 import React from 'react';
 import { Search, Bell, User, Settings, LogOut, Mic, Plus } from 'lucide-react';
 import { useNotification } from '../contexts/NotificationContext';
+import { useAuth } from '../contexts/AuthContext';
 
 function Header() {
   const { unreadCount } = useNotification();
+  const { user, logout } = useAuth();
 
   const handleLogout = () => {
-    localStorage.removeItem('authToken');
-    window.location.href = '/login';
+    logout();
   };
+
+  const displayName = user ? `${user.firstName || user.first_name || ''} ${user.lastName || user.last_name || ''}`.trim() || user.username || user.name || 'User' : 'User';
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 h-16">
@@ -61,7 +64,7 @@ function Header() {
           <div className="relative group">
             <button className="flex items-center space-x-2 p-2 text-gray-600 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors">
               <User className="h-5 w-5" />
-              <span className="text-sm font-medium">Admin</span>
+              <span className="text-sm font-medium">{displayName}</span>
             </button>
 
             {/* Dropdown Menu */}

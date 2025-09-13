@@ -19,12 +19,23 @@ class User {
     }
   }
 
+  static async findByUsername(username) {
+    try {
+      const user = await db.get('SELECT * FROM users WHERE username = ? OR name = ?', [username, username]);
+      return user;
+    } catch (error) {
+      throw new Error(`Error finding user by username: ${error.message}`);
+    }
+  }
+
   static async create(userData) {
     try {
-      const { name, email, password_hash } = userData;
+      const { first_name, last_name, username, email, password_hash } = userData;
+      const full_name = `${first_name} ${last_name}`.trim();
+      
       const result = await db.run(
-        'INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)',
-        [name, email, password_hash]
+        'INSERT INTO users (first_name, last_name, name, username, email, password_hash) VALUES (?, ?, ?, ?, ?, ?)',
+        [first_name, last_name, full_name, username, email, password_hash]
       );
       
       return this.findById(result.id);

@@ -15,14 +15,64 @@ import {
 import { useTask } from '../contexts/TaskContext';
 
 function Sidebar() {
-  const { stats, filters, setFilters } = useTask();
+  const { stats, filters, setFilters, tasks, activeFilter, setActiveFilter } = useTask();
+
+  // Calculate today's tasks count
+  const getTodayTasksCount = () => {
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    return tasks.filter(task => {
+      if (!task.deadline) return false;
+      const taskDate = new Date(task.deadline).toISOString().split('T')[0];
+      return taskDate === todayStr && task.status !== 'Completed';
+    }).length;
+  };
+
+  // Calculate dynamic category counts
+  const getCategoryCount = (categoryName) => {
+    return tasks.filter(task => task.category === categoryName).length;
+  };
+
+  // Calculate dynamic priority counts
+  const getPriorityCount = (priority) => {
+    return tasks.filter(task => task.priority === priority && task.status !== 'Completed').length;
+  };
 
   const menuItems = [
-    { icon: Home, label: 'Dashboard', active: true },
-    { icon: CheckSquare, label: 'All Tasks', count: stats.total },
-    { icon: Clock, label: 'Pending', count: stats.pending },
-    { icon: AlertTriangle, label: 'Overdue', count: stats.overdue },
-    { icon: Calendar, label: 'Today' },
+    { 
+      icon: Home, 
+      label: 'Dashboard', 
+      active: activeFilter === 'dashboard',
+      filter: 'dashboard'
+    },
+    { 
+      icon: CheckSquare, 
+      label: 'All Tasks', 
+      count: stats.total,
+      active: activeFilter === 'all',
+      filter: 'all'
+    },
+    { 
+      icon: Clock, 
+      label: 'Pending', 
+      count: stats.pending,
+      active: activeFilter === 'pending',
+      filter: 'pending'
+    },
+    { 
+      icon: AlertTriangle, 
+      label: 'Overdue', 
+      count: stats.overdue,
+      active: activeFilter === 'overdue',
+      filter: 'overdue'
+    },
+    { 
+      icon: Calendar, 
+      label: 'Today',
+      count: getTodayTasksCount(),
+      active: activeFilter === 'today',
+      filter: 'today'
+    },
   ];
 
   const aiFeatures = [
@@ -33,24 +83,28 @@ function Sidebar() {
   ];
 
   const categories = [
-    { name: 'Work', color: 'bg-blue-500', count: 5 },
-    { name: 'Personal', color: 'bg-purple-500', count: 3 },
-    { name: 'Health', color: 'bg-green-500', count: 2 },
-    { name: 'Finance', color: 'bg-yellow-500', count: 1 },
-    { name: 'Study', color: 'bg-indigo-500', count: 4 },
-    { name: 'Shopping', color: 'bg-pink-500', count: 2 },
+    { name: 'Work', color: 'bg-blue-500', count: getCategoryCount('Work') },
+    { name: 'Personal', color: 'bg-purple-500', count: getCategoryCount('Personal') },
+    { name: 'Health', color: 'bg-green-500', count: getCategoryCount('Health') },
+    { name: 'Finance', color: 'bg-yellow-500', count: getCategoryCount('Finance') },
+    { name: 'Study', color: 'bg-indigo-500', count: getCategoryCount('Study') },
+    { name: 'Shopping', color: 'bg-pink-500', count: getCategoryCount('Shopping') },
   ];
 
   const priorities = [
-    { name: 'High', color: 'bg-red-500', count: stats.high_priority },
-    { name: 'Medium', color: 'bg-yellow-500', count: 8 },
-    { name: 'Low', color: 'bg-green-500', count: 4 },
+    { name: 'High', color: 'bg-red-500', count: getPriorityCount('High') },
+    { name: 'Medium', color: 'bg-yellow-500', count: getPriorityCount('Medium') },
+    { name: 'Low', color: 'bg-green-500', count: getPriorityCount('Low') },
   ];
 
   const handleFilterChange = (filterType, value) => {
     setFilters({
       [filterType]: filters[filterType] === value ? '' : value
     });
+  };
+
+  const handleOverviewClick = (filter) => {
+    setActiveFilter(filter);
   };
 
   return (
@@ -63,10 +117,10 @@ function Sidebar() {
           </h3>
           <nav className="space-y-1">
             {menuItems.map((item) => (
-              <a
+              <button
                 key={item.label}
-                href="#"
-                className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                onClick={() => handleOverviewClick(item.filter)}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   item.active
                     ? 'bg-primary-50 text-primary-700 border-r-2 border-primary-600'
                     : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
@@ -85,7 +139,7 @@ function Sidebar() {
                     {item.count}
                   </span>
                 )}
-              </a>
+              </button>
             ))}
           </nav>
         </div>

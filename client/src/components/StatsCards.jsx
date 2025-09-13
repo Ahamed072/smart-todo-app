@@ -1,7 +1,18 @@
 import React from 'react';
 import { CheckCircle2, Clock, AlertTriangle, TrendingUp, Target, Calendar } from 'lucide-react';
 
-function StatsCards({ stats, onCardClick }) {
+function StatsCards({ stats, onCardClick, tasks = [] }) {
+  // Calculate today's tasks count
+  const getTodayTasksCount = () => {
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    return tasks.filter(task => {
+      if (!task.deadline) return false;
+      const taskDate = new Date(task.deadline).toISOString().split('T')[0];
+      return taskDate === todayStr && task.status !== 'Completed';
+    }).length;
+  };
+
   const cards = [
     {
       title: 'Total Tasks',
@@ -23,13 +34,13 @@ function StatsCards({ stats, onCardClick }) {
       filterType: 'completed'
     },
     {
-      title: 'In Progress',
-      value: stats.in_progress || 0,
-      icon: Clock,
-      color: 'text-yellow-600',
-      bgColor: 'bg-yellow-50',
-      borderColor: 'border-yellow-200',
-      filterType: 'inprogress'
+      title: 'Today',
+      value: getTodayTasksCount(),
+      icon: Calendar,
+      color: 'text-cyan-600',
+      bgColor: 'bg-cyan-50',
+      borderColor: 'border-cyan-200',
+      filterType: 'today'
     },
     {
       title: 'Overdue',
@@ -52,7 +63,7 @@ function StatsCards({ stats, onCardClick }) {
     {
       title: 'Pending',
       value: stats.pending || 0,
-      icon: Calendar,
+      icon: Clock,
       color: 'text-indigo-600',
       bgColor: 'bg-indigo-50',
       borderColor: 'border-indigo-200',

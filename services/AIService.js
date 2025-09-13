@@ -2,7 +2,7 @@ class AIService {
   constructor() {
     this.apiKey = null;
     this.baseUrl = 'https://openrouter.ai/api/v1';
-    this.model = 'meta-llama/llama-3.1-8b-instruct:free';
+    this.model = 'meta-llama/llama-3.1-8b-instruct'; // Free model (offer ongoing)
     this.initialize();
   }
 
@@ -22,7 +22,7 @@ class AIService {
         return;
       }
 
-      console.log('🤖 AI Service initialized with free model:', this.model);
+      console.log('🤖 AI Service initialized with model:', this.model);
     } catch (error) {
       console.error('AI Service initialization failed:', error);
     }
@@ -30,6 +30,8 @@ class AIService {
 
   async makeRequest(messages) {
     try {
+      console.log('🔑 Making AI request with model:', this.model);
+      
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
@@ -47,7 +49,9 @@ class AIService {
       });
 
       if (!response.ok) {
-        throw new Error(`API request failed: ${response.status}`);
+        const errorText = await response.text();
+        console.error(`API Error ${response.status}:`, errorText);
+        throw new Error(`API request failed: ${response.status} - ${errorText}`);
       }
 
       const data = await response.json();
@@ -61,12 +65,13 @@ class AIService {
   async extractTasks(text, userTimezone = 'UTC') {
     try {
       if (!this.apiKey) {
+        console.log('⚠️  No API key configured, using mock responses');
         return this.getMockTasks(text);
       }
 
       const messages = [{
         role: 'user',
-        content: `Extract actionable tasks from the following text. Return a JSON array of tasks with the following structure:
+        content: `Extract ALL actionable tasks from the following text. Look for multiple tasks, action items, reminders, and to-dos. Return a JSON array of tasks with the following structure:
 [
   {
     "title": "clear task title",
@@ -78,14 +83,22 @@ class AIService {
   }
 ]
 
-Rules:
-1. Only extract clear, actionable tasks
-2. Infer deadlines from relative dates (tomorrow, next week, etc.)
-3. Use current date context: ${new Date().toISOString()}
-4. Timezone: ${userTimezone}
-5. Assign priority based on urgency indicators
-6. Choose the most appropriate category
-7. Return valid JSON only, no other text
+IMPORTANT RULES:
+1. Extract EVERY actionable task you can find, not just one
+2. Look for bullet points, numbered lists, action words (call, send, buy, complete, etc.)
+3. Each task should be a separate object in the array
+4. Infer deadlines from relative dates (tomorrow, next week, Friday, etc.)
+5. Use current date context: ${new Date().toISOString()}
+6. Timezone: ${userTimezone}
+7. Assign priority based on urgency indicators (urgent, important, ASAP, etc.)
+8. Choose the most appropriate category for each task
+9. Return valid JSON only, no other text
+10. If text contains multiple tasks, return multiple objects
+
+Examples of what to look for:
+- "Call John, then send email to client, and buy groceries" = 3 tasks
+- "Meeting at 2pm, doctor appointment Thursday, submit report Friday" = 3 tasks
+- "Board meeting presentation due Friday 3PM, Doctor appointment Thursday 2PM, Pick up dry cleaning" = 3 tasks
 
 Text to analyze:
 "${text}"`
@@ -107,6 +120,7 @@ Text to analyze:
       return [];
     } catch (error) {
       console.error('AI task extraction error:', error);
+      console.log('🔄 Falling back to mock task extraction');
       return this.getMockTasks(text);
     }
   }
@@ -151,6 +165,7 @@ Return only valid JSON, no other text.`
   async generateDailySummary(tasks, date = new Date()) {
     try {
       if (!this.apiKey) {
+        console.log('⚠️  No API key configured, using mock summary');
         return this.getMockSummary(tasks);
       }
 
@@ -180,58 +195,91 @@ Return only valid JSON, no other text.`
       return this.getMockSummary(tasks);
     } catch (error) {
       console.error('AI summary generation error:', error);
+      console.log('🔄 Falling back to mock summary');
       return this.getMockSummary(tasks);
     }
   }
 
   // Mock responses for when AI is not available
   getMockTasks(text) {
-    const keywords = text.toLowerCase();
+    const lines = text.split(/\n|;|,|\band\b|\bthen\b/i).filter(line => line.trim().length > 0);
     const mockTasks = [];
 
-    // Simple keyword detection for demo
-    if (keywords.includes('meeting') || keywords.includes('call')) {
-      mockTasks.push({
-        title: 'Attend meeting/call',
-        description: 'Extracted from: ' + text.substring(0, 100),
-        deadline: null,
-        priority: 'Medium',
-        category: 'Work',
-        confidence_score: 0.7,
-        ai_generated: true
-      });
-    }
+    lines.forEach((line, index) => {
+      const trimmedLine = line.trim();
+      if (trimmedLine.length < 5) return; // Skip very short lines
 
-    if (keywords.includes('email') || keywords.includes('send')) {
-      mockTasks.push({
-        title: 'Send email',
-        description: 'Extracted from: ' + text.substring(0, 100),
-        deadline: null,
-        priority: 'Medium',
-        category: 'Work',
-        confidence_score: 0.6,
-        ai_generated: true
-      });
-    }
+      const lowerLine = trimmedLine.toLowerCase();
+      
+      // Detect task patterns
+      let taskTitle = trimmedLine;
+      let priority = 'Medium';
+      let category = 'Other';
+      
+      // Remove bullet points and numbers
+      taskTitle = taskTitle.replace(/^[-•*]\s*/, '').replace(/^\d+\.\s*/, '');
+      
+      // Determine priority
+      if (lowerLine.includes('urgent') || lowerLine.includes('asap') || lowerLine.includes('important')) {
+        priority = 'High';
+      } else if (lowerLine.includes('low priority') || lowerLine.includes('when possible')) {
+        priority = 'Low';
+      }
+      
+      // Determine category
+      if (lowerLine.includes('meeting') || lowerLine.includes('call') || lowerLine.includes('presentation') || lowerLine.includes('email') || lowerLine.includes('report')) {
+        category = 'Work';
+      } else if (lowerLine.includes('doctor') || lowerLine.includes('appointment') || lowerLine.includes('health') || lowerLine.includes('dentist')) {
+        category = 'Health';
+      } else if (lowerLine.includes('buy') || lowerLine.includes('shop') || lowerLine.includes('purchase') || lowerLine.includes('groceries')) {
+        category = 'Shopping';
+      } else if (lowerLine.includes('mom') || lowerLine.includes('family') || lowerLine.includes('personal') || lowerLine.includes('birthday')) {
+        category = 'Personal';
+      } else if (lowerLine.includes('study') || lowerLine.includes('read') || lowerLine.includes('learn')) {
+        category = 'Study';
+      }
 
-    if (keywords.includes('buy') || keywords.includes('shop') || keywords.includes('purchase')) {
+      // Extract deadline
+      let deadline = null;
+      const today = new Date();
+      
+      if (lowerLine.includes('tomorrow')) {
+        deadline = new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString();
+      } else if (lowerLine.includes('friday')) {
+        const friday = new Date(today);
+        friday.setDate(today.getDate() + (5 - today.getDay() + 7) % 7);
+        deadline = friday.toISOString();
+      } else if (lowerLine.includes('thursday')) {
+        const thursday = new Date(today);
+        thursday.setDate(today.getDate() + (4 - today.getDay() + 7) % 7);
+        deadline = thursday.toISOString();
+      } else if (lowerLine.includes('saturday')) {
+        const saturday = new Date(today);
+        saturday.setDate(today.getDate() + (6 - today.getDay() + 7) % 7);
+        deadline = saturday.toISOString();
+      } else if (lowerLine.includes('sunday')) {
+        const sunday = new Date(today);
+        sunday.setDate(today.getDate() + (7 - today.getDay()) % 7);
+        deadline = sunday.toISOString();
+      }
+
       mockTasks.push({
-        title: 'Shopping task',
-        description: 'Extracted from: ' + text.substring(0, 100),
-        deadline: null,
-        priority: 'Low',
-        category: 'Shopping',
-        confidence_score: 0.8,
+        title: taskTitle.charAt(0).toUpperCase() + taskTitle.slice(1),
+        description: `Extracted from line ${index + 1}`,
+        deadline,
+        priority,
+        category,
+        confidence_score: 0.75,
         ai_generated: true
       });
-    }
+    });
 
     return mockTasks.length > 0 ? mockTasks : [{
       title: 'Review and organize tasks',
       description: 'Extracted from provided text',
       deadline: null,
       priority: 'Medium',
-      category: 'General',
+      category: 'Other',
       confidence_score: 0.5,
       ai_generated: true
     }];

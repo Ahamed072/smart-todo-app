@@ -1,29 +1,75 @@
-import React from 'react';
-import { User, Settings, LogOut } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { User, Lock, UserPlus, LogIn, Mail } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 function Login() {
-  const [credentials, setCredentials] = React.useState({
-    username: 'admin',
-    password: 'Admin@12'
+  const { login, register, user } = useAuth();
+  const navigate = useNavigate();
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [credentials, setCredentials] = useState({
+    firstName: '',
+    lastName: '',
+    username: '',
+    email: '',
+    password: ''
   });
-  const [loading, setLoading] = React.useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (user) {
+      navigate('/', { replace: true });
+    }
+  }, [user, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
     
-    // For demo purposes, we'll just redirect to dashboard
-    // In a real app, you'd call the login API
-    setTimeout(() => {
-      localStorage.setItem('authToken', 'demo-token');
-      window.location.href = '/';
-    }, 1000);
+    try {
+      if (isRegistering) {
+        await register({
+          firstName: credentials.firstName,
+          lastName: credentials.lastName,
+          username: credentials.username,
+          email: credentials.email,
+          password: credentials.password
+        });
+      } else {
+        await login({
+          username: credentials.username,
+          password: credentials.password
+        });
+      }
+
+      // Redirect to dashboard  
+      navigate('/', { replace: true });
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleChange = (e) => {
     setCredentials({
       ...credentials,
       [e.target.name]: e.target.value
+    });
+  };
+
+  const toggleMode = () => {
+    setIsRegistering(!isRegistering);
+    setError('');
+    setCredentials({
+      firstName: '',
+      lastName: '',
+      username: '',
+      email: '',
+      password: ''
     });
   };
 
@@ -38,17 +84,29 @@ function Login() {
             Smart AI Todo
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            Your intelligent task management companion
+            {isRegistering 
+              ? 'Create your account to get started' 
+              : 'Your intelligent task management companion'
+            }
           </p>
         </div>
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-md p-3">
+              <p className="text-sm text-red-800">{error}</p>
+            </div>
+          )}
+
           <div className="space-y-4">
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-gray-700">
                 Username
               </label>
-              <div className="mt-1">
+              <div className="mt-1 relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <User className="h-5 w-5 text-gray-400" />
+                </div>
                 <input
                   id="username"
                   name="username"
@@ -56,17 +114,87 @@ function Login() {
                   required
                   value={credentials.username}
                   onChange={handleChange}
-                  className="input"
-                  placeholder="Enter username"
+                  className="input pl-10"
+                  placeholder="Enter your username"
                 />
               </div>
             </div>
+
+            {isRegistering && (
+              <>
+                <div>
+                  <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
+                    First Name
+                  </label>
+                  <div className="mt-1 relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <User className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      id="firstName"
+                      name="firstName"
+                      type="text"
+                      required
+                      value={credentials.firstName}
+                      onChange={handleChange}
+                      className="input pl-10"
+                      placeholder="Enter your first name"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
+                    Last Name
+                  </label>
+                  <div className="mt-1 relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <User className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      id="lastName"
+                      name="lastName"
+                      type="text"
+                      required
+                      value={credentials.lastName}
+                      onChange={handleChange}
+                      className="input pl-10"
+                      placeholder="Enter your last name"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                    Email
+                  </label>
+                  <div className="mt-1 relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Mail className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      id="email"
+                      name="email"
+                      type="email"
+                      required
+                      value={credentials.email}
+                      onChange={handleChange}
+                      className="input pl-10"
+                      placeholder="Enter your email"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                 Password
               </label>
-              <div className="mt-1">
+              <div className="mt-1 relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Lock className="h-5 w-5 text-gray-400" />
+                </div>
                 <input
                   id="password"
                   name="password"
@@ -74,10 +202,16 @@ function Login() {
                   required
                   value={credentials.password}
                   onChange={handleChange}
-                  className="input"
-                  placeholder="Enter password"
+                  className="input pl-10"
+                  placeholder={isRegistering ? "Create a password (min 6 characters)" : "Enter your password"}
+                  minLength={isRegistering ? 6 : undefined}
                 />
               </div>
+              {isRegistering && (
+                <p className="mt-1 text-xs text-gray-500">
+                  Password must be at least 6 characters long
+                </p>
+              )}
             </div>
           </div>
 
@@ -90,22 +224,37 @@ function Login() {
               {loading ? (
                 <div className="flex items-center justify-center">
                   <div className="loading-spinner mr-2"></div>
-                  Signing in...
+                  {isRegistering ? 'Creating account...' : 'Signing in...'}
                 </div>
               ) : (
-                'Sign in'
+                <div className="flex items-center justify-center">
+                  {isRegistering ? (
+                    <>
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Create Account
+                    </>
+                  ) : (
+                    <>
+                      <LogIn className="h-4 w-4 mr-2" />
+                      Sign In
+                    </>
+                  )}
+                </div>
               )}
             </button>
           </div>
 
           <div className="text-center">
-            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
-              <p className="text-sm text-yellow-800">
-                <strong>Demo Credentials:</strong><br />
-                Username: admin<br />
-                Password: Admin@12
-              </p>
-            </div>
+            <button
+              type="button"
+              onClick={toggleMode}
+              className="text-sm text-primary-600 hover:text-primary-500 font-medium"
+            >
+              {isRegistering 
+                ? 'Already have an account? Sign in here' 
+                : "Don't have an account? Register here"
+              }
+            </button>
           </div>
         </form>
 

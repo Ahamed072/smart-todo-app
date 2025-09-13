@@ -13,7 +13,7 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('authToken');
-    if (token) {
+    if (token && !config.url.includes('/auth/register') && !config.url.includes('/auth/login')) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
@@ -28,8 +28,23 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('authToken');
-      window.location.href = '/login';
+      // Don't redirect if we're already on login page or making auth calls
+      const isAuthCall = error.config?.url?.includes('/auth/');
+      const isOnLoginPage = window.location.pathname === '/login';
+      const isLoggingOut = sessionStorage.getItem('loggingOut') === 'true';
+      
+      if (!isAuthCall && !isOnLoginPage && !isLoggingOut) {
+        // Only show alert if there are repeated failures
+        const lastRedirect = sessionStorage.getItem('lastAuthRedirect');
+        const now = Date.now();
+        
+        if (!lastRedirect || (now - parseInt(lastRedirect)) > 5000) { // 5 second cooldown
+          sessionStorage.setItem('lastAuthRedirect', now.toString());
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('user');
+          window.location.href = '/login';
+        }
+      }
     }
     return Promise.reject(error);
   }
@@ -37,7 +52,30 @@ api.interceptors.response.use(
 
 // Auth API
 export const authAPI = {
-  login: (credentials) => api.post('/auth/login', credentials),
+  register: async (userData) => {
+    const response = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(userData)
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || 'Registration failed');
+    }
+    return data;
+  },
+  login: async (credentials) => {
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(credentials)
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || 'Login failed');
+    }
+    return data;
+  },
   getProfile: () => api.get('/auth/profile'),
   updateProfile: (data) => api.put('/auth/profile', data),
   validateToken: () => api.get('/auth/validate'),

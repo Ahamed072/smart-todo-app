@@ -20,6 +20,13 @@ function VoiceInputModal({ onClose }) {
   const [transcript, setTranscript] = useState('');
   const [showExtracted, setShowExtracted] = useState(false);
 
+  // Clear extracted tasks when modal opens
+  useEffect(() => {
+    clearExtractedTasks();
+    setShowExtracted(false);
+    setTranscript('');
+  }, []);
+
   useEffect(() => {
     setTranscript(voiceTranscript);
   }, [voiceTranscript]);
@@ -39,6 +46,12 @@ function VoiceInputModal({ onClose }) {
 
   const handleStopRecording = () => {
     stopVoiceRecording();
+  };
+
+  const handleClearAll = () => {
+    setTranscript('');
+    clearExtractedTasks();
+    setShowExtracted(false);
   };
 
   const handleProcessVoice = async () => {
@@ -227,21 +240,25 @@ function VoiceInputModal({ onClose }) {
             </button>
             
             {showExtracted && extractedTasks.length > 0 && (
-              <button
-                onClick={handleCreateTasks}
-                className="btn-success px-6 py-2"
-              >
-                Create {extractedTasks.length} Tasks
-              </button>
+              <>
+                <button
+                  onClick={handleClearAll}
+                  className="btn-secondary px-4 py-2 text-red-600 hover:text-red-700"
+                >
+                  Clear Extracted Tasks
+                </button>
+                <button
+                  onClick={handleCreateTasks}
+                  className="btn-success px-6 py-2"
+                >
+                  Create {extractedTasks.length} Tasks
+                </button>
+              </>
             )}
             
             {transcript.trim() && !showExtracted && (
               <button
-                onClick={() => {
-                  clearExtractedTasks();
-                  setShowExtracted(false);
-                  setTranscript('');
-                }}
+                onClick={handleClearAll}
                 className="btn-secondary px-4 py-2"
               >
                 Clear

@@ -20,12 +20,13 @@ function Dashboard() {
   const [selectedTask, setSelectedTask] = useState(null);
   const [viewMode, setViewMode] = useState('grid'); // grid or list
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState('all'); // all, pending, completed, high, overdue, inprogress
 
   const { 
     tasks, 
     loading, 
     stats, 
+    activeFilter,
+    setActiveFilter,
     fetchTasks, 
     markTaskComplete, 
     deleteTask,
@@ -40,9 +41,18 @@ function Dashboard() {
 
   const { notifications } = useNotification();
 
+  // Refresh daily summary when tasks change
+  useEffect(() => {
+    if (tasks.length > 0) {
+      const today = new Date().toISOString().split('T')[0];
+      generateDailySummary(today);
+    }
+  }, [tasks.length]);
+
   // Fetch daily summary on mount
   useEffect(() => {
-    generateDailySummary(new Date().toISOString().split('T')[0]);
+    const today = new Date().toISOString().split('T')[0];
+    generateDailySummary(today);
     getInsights();
   }, []);
 
@@ -79,6 +89,15 @@ function Dashboard() {
           if (!task.deadline) return false;
           const deadline = new Date(task.deadline);
           return deadline < now && task.status !== 'Completed';
+        });
+        break;
+      case 'today':
+        const today = new Date();
+        const todayStr = today.toISOString().split('T')[0];
+        filteredTasks = filteredTasks.filter(task => {
+          if (!task.deadline) return false;
+          const taskDate = new Date(task.deadline).toISOString().split('T')[0];
+          return taskDate === todayStr && task.status !== 'Completed';
         });
         break;
       default:
@@ -181,7 +200,7 @@ function Dashboard() {
       </div>
 
       {/* Stats Cards */}
-      <StatsCards stats={stats} onCardClick={handleStatsCardClick} />
+      <StatsCards stats={stats} tasks={tasks} onCardClick={handleStatsCardClick} />
 
       {/* Search and Filter Bar */}
       <div className="bg-white rounded-lg border border-gray-200 p-4">
@@ -210,6 +229,7 @@ function Dashboard() {
               <option value="inprogress">In Progress</option>
               <option value="high">High Priority</option>
               <option value="overdue">Overdue</option>
+              <option value="today">Today</option>
             </select>
             
             {(searchQuery || activeFilter !== 'all') && (
@@ -248,6 +268,28 @@ function Dashboard() {
               </h3>
               <p className="text-gray-700 mb-3">{dailySummary.summary}</p>
               
+              {/* Priority Focus */}
+              {dailySummary.priority_focus && (
+                <div className="mb-3">
+                  <h4 className="font-medium text-gray-900 mb-1">Priority Focus:</h4>
+                  <p className="text-sm text-gray-600">{dailySummary.priority_focus}</p>
+                </div>
+              )}
+
+              {/* Workload Estimation */}
+              {dailySummary.estimated_workload && (
+                <div className="mb-3">
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    dailySummary.estimated_workload === 'heavy' ? 'bg-red-100 text-red-800' :
+                    dailySummary.estimated_workload === 'moderate' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-green-100 text-green-800'
+                  }`}>
+                    {dailySummary.estimated_workload.charAt(0).toUpperCase() + dailySummary.estimated_workload.slice(1)} Workload
+                  </span>
+                </div>
+              )}
+              
+              {/* Recommendations */}
               {dailySummary.recommendations && dailySummary.recommendations.length > 0 && (
                 <div>
                   <h4 className="font-medium text-gray-900 mb-2">Recommendations:</h4>

@@ -64,7 +64,7 @@ function initializeDatabase() {
     
     db.serialize(() => {
       let completedOperations = 0;
-      const totalOperations = Object.keys(schemas).length + 1 + 6; // tables + user + indexes
+      const totalOperations = Object.keys(schemas).length + 6; // tables + indexes
       
       // Create tables with error handling
       Object.entries(schemas).forEach(([tableName, schema]) => {
@@ -82,28 +82,6 @@ function initializeDatabase() {
             resolve();
           }
         });
-      });
-      
-      // Create default admin user
-      const bcrypt = require('bcryptjs');
-      const adminPassword = bcrypt.hashSync(process.env.ADMIN_PASSWORD || 'Admin@12', 10);
-      
-      db.run(`
-        INSERT OR IGNORE INTO users (id, name, email, password_hash) 
-        VALUES (1, 'Admin', 'admin@smarttodo.com', ?)
-      `, [adminPassword], (err) => {
-        if (err) {
-          console.error('Error creating admin user:', err);
-          reject(err);
-          return;
-        }
-        console.log('✅ Created admin user');
-        completedOperations++;
-        
-        if (completedOperations === totalOperations) {
-          console.log('✅ Database initialized successfully');
-          resolve();
-        }
       });
       
       // Create indexes for better performance

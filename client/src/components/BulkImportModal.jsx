@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, FileText, Upload, Send, Loader, CheckCircle, AlertCircle } from 'lucide-react';
 import { useAI } from '../contexts/AIContext';
 import { useTask } from '../contexts/TaskContext';
@@ -10,6 +10,14 @@ function BulkImportModal({ onClose }) {
   const [text, setText] = useState('');
   const [showExtracted, setShowExtracted] = useState(false);
   const [selectedTasks, setSelectedTasks] = useState(new Set());
+
+  // Auto-select all tasks when extractedTasks updates
+  useEffect(() => {
+    if (extractedTasks.length > 0) {
+      const allTaskIds = new Set(extractedTasks.map((_, index) => index));
+      setSelectedTasks(allTaskIds);
+    }
+  }, [extractedTasks]);
 
   const sampleTexts = [
     {
@@ -47,11 +55,14 @@ Thanks!`
     if (!text.trim()) return;
     
     try {
+      // Clear previous extracted tasks before processing new input
+      clearExtractedTasks();
       await extractTasks(text);
       setShowExtracted(true);
-      // Select all tasks by default
-      const allTaskIds = new Set(extractedTasks.map((_, index) => index));
-      setSelectedTasks(allTaskIds);
+      // Wait a moment for state to update then select all tasks
+      setTimeout(() => {
+        // This will be set in useEffect when extractedTasks updates
+      }, 100);
     } catch (error) {
       console.error('Text processing failed:', error);
     }
@@ -93,6 +104,7 @@ Thanks!`
     setText(sample.content);
     setShowExtracted(false);
     clearExtractedTasks();
+    setSelectedTasks(new Set()); // Clear selected tasks
   };
 
   return (
@@ -195,6 +207,17 @@ Thanks!`
                     className="text-sm text-primary-600 hover:text-primary-700"
                   >
                     Deselect All
+                  </button>
+                  <span className="text-gray-300">|</span>
+                  <button
+                    onClick={() => {
+                      clearExtractedTasks();
+                      setShowExtracted(false);
+                      setSelectedTasks(new Set());
+                    }}
+                    className="text-sm text-red-600 hover:text-red-700"
+                  >
+                    Clear All
                   </button>
                   <span className="text-sm text-gray-500">
                     ({selectedTasks.size} selected)
