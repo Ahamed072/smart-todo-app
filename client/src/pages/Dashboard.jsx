@@ -3,6 +3,7 @@ import { Plus, Mic, FileText, Brain, TrendingUp, Calendar, Clock, AlertCircle, S
 import { useTask } from '../contexts/TaskContext';
 import { useAI } from '../contexts/AIContext';
 import { useNotification } from '../contexts/NotificationContext';
+import { useUI } from '../contexts/UIContext';
 
 // Components
 import TaskCard from '../components/TaskCard';
@@ -13,11 +14,6 @@ import AIInsightsPanel from '../components/AIInsightsPanel';
 import StatsCards from '../components/StatsCards';
 
 function Dashboard() {
-  const [showTaskModal, setShowTaskModal] = useState(false);
-  const [showVoiceModal, setShowVoiceModal] = useState(false);
-  const [showBulkModal, setShowBulkModal] = useState(false);
-  const [showAIInsights, setShowAIInsights] = useState(false);
-  const [selectedTask, setSelectedTask] = useState(null);
   const [viewMode, setViewMode] = useState('grid'); // grid or list
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -40,6 +36,22 @@ function Dashboard() {
   } = useAI();
 
   const { notifications } = useNotification();
+
+  const {
+    showTaskModal,
+    showVoiceModal,
+    showBulkModal,
+    showAIInsights,
+    selectedTask,
+    openTaskModal,
+    closeTaskModal,
+    openVoiceModal,
+    closeVoiceModal,
+    openBulkModal,
+    closeBulkModal,
+    openAIInsights,
+    closeAIInsights
+  } = useUI();
 
   // Refresh daily summary when tasks change
   useEffect(() => {
@@ -114,8 +126,7 @@ function Dashboard() {
   };
 
   const handleTaskClick = (task) => {
-    setSelectedTask(task);
-    setShowTaskModal(true);
+    openTaskModal(task);
   };
 
   const handleTaskComplete = async (taskId) => {
@@ -163,7 +174,7 @@ function Dashboard() {
 
         <div className="flex items-center space-x-3">
           <button
-            onClick={() => setShowBulkModal(true)}
+            onClick={openBulkModal}
             className="btn-secondary px-4 py-2"
           >
             <FileText className="h-4 w-4 mr-2" />
@@ -171,7 +182,7 @@ function Dashboard() {
           </button>
           
           <button
-            onClick={() => setShowVoiceModal(true)}
+            onClick={openVoiceModal}
             className="btn-secondary px-4 py-2"
           >
             <Mic className="h-4 w-4 mr-2" />
@@ -179,7 +190,7 @@ function Dashboard() {
           </button>
 
           <button
-            onClick={() => setShowAIInsights(true)}
+            onClick={openAIInsights}
             className="btn-secondary px-4 py-2"
           >
             <Brain className="h-4 w-4 mr-2" />
@@ -187,10 +198,7 @@ function Dashboard() {
           </button>
 
           <button
-            onClick={() => {
-              setSelectedTask(null);
-              setShowTaskModal(true);
-            }}
+            onClick={() => openTaskModal()}
             className="btn-primary px-4 py-2"
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -404,10 +412,7 @@ function Dashboard() {
               }
             </p>
             <button
-              onClick={() => {
-                setSelectedTask(null);
-                setShowTaskModal(true);
-              }}
+              onClick={() => openTaskModal()}
               className="btn-primary px-6 py-2"
             >
               <Plus className="h-4 w-4 mr-2" />
@@ -437,28 +442,25 @@ function Dashboard() {
       {showTaskModal && (
         <TaskModal
           task={selectedTask}
-          onClose={() => {
-            setShowTaskModal(false);
-            setSelectedTask(null);
-          }}
+          onClose={closeTaskModal}
         />
       )}
 
       {showVoiceModal && (
         <VoiceInputModal
-          onClose={() => setShowVoiceModal(false)}
+          onClose={closeVoiceModal}
         />
       )}
 
       {showBulkModal && (
         <BulkImportModal
-          onClose={() => setShowBulkModal(false)}
+          onClose={closeBulkModal}
         />
       )}
 
       {showAIInsights && (
         <AIInsightsPanel
-          onClose={() => setShowAIInsights(false)}
+          onClose={closeAIInsights}
         />
       )}
     </div>

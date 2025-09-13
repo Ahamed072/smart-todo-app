@@ -8,6 +8,7 @@ import { TaskProvider } from './contexts/TaskContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { AIProvider } from './contexts/AIContext';
 import { AuthProvider } from './contexts/AuthContext';
+import { UIProvider } from './contexts/UIContext';
 
 // Pages
 import Dashboard from './pages/Dashboard';
@@ -25,6 +26,7 @@ function App() {
           <TaskProvider>
             <NotificationProvider>
               <AIProvider>
+                <UIProvider>
               <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route
@@ -57,6 +59,7 @@ function App() {
                 theme="light"
                 className="mt-16"
               />
+                </UIProvider>
             </AIProvider>
           </NotificationProvider>
         </TaskProvider>

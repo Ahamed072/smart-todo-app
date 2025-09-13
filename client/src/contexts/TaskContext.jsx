@@ -51,7 +51,7 @@ const calculateStatsFromTasks = (tasks) => {
       stats.high_priority++;
     }
 
-    if (task.due_date && new Date(task.due_date) < now && task.status?.toLowerCase() !== 'completed') {
+    if (task.deadline && new Date(task.deadline) < now && task.status?.toLowerCase() !== 'completed') {
       stats.overdue++;
     }
   });
@@ -171,6 +171,15 @@ function taskReducer(state, action) {
 export function TaskProvider({ children }) {
   const [state, dispatch] = useReducer(taskReducer, initialState);
 
+  // Helper function to determine if we should show error toast
+  const shouldShowErrorToast = (error) => {
+    // Don't show toast for authentication errors (401, 403)
+    const isAuthError = error.response?.status === 401 || error.response?.status === 403;
+    // Don't show toast if user is being logged out
+    const isLoggingOut = sessionStorage.getItem('loggingOut') === 'true';
+    return !isAuthError && !isLoggingOut;
+  };
+
   // Auto-refresh tasks every 30 seconds when the tab is active
   useEffect(() => {
     let interval;
@@ -218,7 +227,7 @@ export function TaskProvider({ children }) {
     } catch (error) {
       const message = error.response?.data?.error || 'Failed to fetch tasks';
       dispatch({ type: TASK_ACTIONS.SET_ERROR, payload: message });
-      if (showLoading) {
+      if (showLoading && shouldShowErrorToast(error)) {
         toast.error(message);
       }
     }
@@ -250,7 +259,9 @@ export function TaskProvider({ children }) {
       // Remove optimistic task on error
       dispatch({ type: TASK_ACTIONS.DELETE_TASK, payload: tempTask.id });
       const message = error.response?.data?.error || 'Failed to create task';
-      toast.error(message);
+      if (shouldShowErrorToast(error)) {
+        toast.error(message);
+      }
       throw error;
     }
   };
@@ -268,7 +279,9 @@ export function TaskProvider({ children }) {
     } catch (error) {
       const message = error.response?.data?.error || 'Failed to create tasks';
       dispatch({ type: TASK_ACTIONS.SET_ERROR, payload: message });
-      toast.error(message);
+      if (shouldShowErrorToast(error)) {
+        toast.error(message);
+      }
       throw error;
     }
   };
@@ -297,7 +310,9 @@ export function TaskProvider({ children }) {
         dispatch({ type: TASK_ACTIONS.UPDATE_TASK, payload: currentTask });
       }
       const message = error.response?.data?.error || 'Failed to update task';
-      toast.error(message);
+      if (shouldShowErrorToast(error)) {
+        toast.error(message);
+      }
       throw error;
     }
   };
@@ -320,7 +335,9 @@ export function TaskProvider({ children }) {
         dispatch({ type: TASK_ACTIONS.ADD_TASK, payload: currentTask });
       }
       const message = error.response?.data?.error || 'Failed to delete task';
-      toast.error(message);
+      if (shouldShowErrorToast(error)) {
+        toast.error(message);
+      }
       throw error;
     }
   };
@@ -336,7 +353,9 @@ export function TaskProvider({ children }) {
     } catch (error) {
       const message = error.response?.data?.error || 'Failed to mark task complete';
       dispatch({ type: TASK_ACTIONS.SET_ERROR, payload: message });
-      toast.error(message);
+      if (shouldShowErrorToast(error)) {
+        toast.error(message);
+      }
       throw error;
     }
   };

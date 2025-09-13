@@ -2,6 +2,7 @@ import React from 'react';
 import { Search, Bell, User, Settings, LogOut, Mic, Plus } from 'lucide-react';
 import { useNotification } from '../contexts/NotificationContext';
 import { useAuth } from '../contexts/AuthContext';
+import StreakDisplay from './StreakDisplay';
 
 function Header() {
   const { unreadCount } = useNotification();
@@ -40,6 +41,9 @@ function Header() {
 
         {/* Right side actions */}
         <div className="flex items-center space-x-4">
+          {/* Streak Display */}
+          <StreakDisplay />
+
           {/* Voice Input Button */}
           <button className="p-2 text-gray-600 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors">
             <Mic className="h-5 w-5" />

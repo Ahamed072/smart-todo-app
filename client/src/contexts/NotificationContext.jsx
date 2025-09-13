@@ -79,12 +79,34 @@ function notificationReducer(state, action) {
 export function NotificationProvider({ children }) {
   const [state, dispatch] = useReducer(notificationReducer, initialState);
 
+  // Helper function to determine if we should show error toast
+  const shouldShowErrorToast = (error) => {
+    // Don't show toast for authentication errors (401, 403)
+    const isAuthError = error.response?.status === 401 || error.response?.status === 403;
+    // Don't show toast if user is being logged out
+    const isLoggingOut = sessionStorage.getItem('loggingOut') === 'true';
+    return !isAuthError && !isLoggingOut;
+  };
+
   // WebSocket handlers
   useEffect(() => {
     // Handle real-time notifications
     const handleNotification = (notificationData) => {
       // Add to state
       dispatch({ type: NOTIFICATION_ACTIONS.ADD_NOTIFICATION, payload: notificationData });
+      
+      // Show browser notification
+      if ('Notification' in window && Notification.permission === 'granted') {
+        showBrowserNotification(
+          'Smart Todo App',
+          notificationData.message,
+          {
+            tag: `notification-${notificationData.id}`,
+            requireInteraction: false,
+            data: notificationData
+          }
+        );
+      }
       
       // Show toast notification
       const toastOptions = {
@@ -159,7 +181,9 @@ export function NotificationProvider({ children }) {
     } catch (error) {
       const message = error.response?.data?.error || 'Failed to mark notification as read';
       dispatch({ type: NOTIFICATION_ACTIONS.SET_ERROR, payload: message });
-      toast.error(message);
+      if (shouldShowErrorToast(error)) {
+        toast.error(message);
+      }
     }
   };
 
@@ -180,7 +204,9 @@ export function NotificationProvider({ children }) {
     } catch (error) {
       const message = error.response?.data?.error || 'Failed to mark all notifications as read';
       dispatch({ type: NOTIFICATION_ACTIONS.SET_ERROR, payload: message });
-      toast.error(message);
+      if (shouldShowErrorToast(error)) {
+        toast.error(message);
+      }
     }
   };
 
@@ -193,7 +219,9 @@ export function NotificationProvider({ children }) {
     } catch (error) {
       const message = error.response?.data?.error || 'Failed to delete notification';
       dispatch({ type: NOTIFICATION_ACTIONS.SET_ERROR, payload: message });
-      toast.error(message);
+      if (shouldShowErrorToast(error)) {
+        toast.error(message);
+      }
     }
   };
 
@@ -207,7 +235,9 @@ export function NotificationProvider({ children }) {
     } catch (error) {
       const message = error.response?.data?.error || 'Failed to create test notification';
       dispatch({ type: NOTIFICATION_ACTIONS.SET_ERROR, payload: message });
-      toast.error(message);
+      if (shouldShowErrorToast(error)) {
+        toast.error(message);
+      }
     }
   };
 

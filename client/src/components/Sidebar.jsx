@@ -4,18 +4,20 @@ import {
   CheckSquare, 
   Clock, 
   AlertTriangle, 
-  BarChart3, 
   Brain, 
   Mic, 
   FileText,
   Calendar,
   Settings,
-  Filter
+  Filter,
+  RotateCcw
 } from 'lucide-react';
 import { useTask } from '../contexts/TaskContext';
+import { useUI } from '../contexts/UIContext';
 
 function Sidebar() {
   const { stats, filters, setFilters, tasks, activeFilter, setActiveFilter } = useTask();
+  const { openAIInsights, openVoiceModal, openBulkModal } = useUI();
 
   // Calculate today's tasks count
   const getTodayTasksCount = () => {
@@ -76,10 +78,21 @@ function Sidebar() {
   ];
 
   const aiFeatures = [
-    { icon: Brain, label: 'AI Insights' },
-    { icon: Mic, label: 'Voice Input' },
-    { icon: FileText, label: 'Bulk Import' },
-    { icon: BarChart3, label: 'Analytics' },
+    { 
+      icon: Brain, 
+      label: 'AI Insights',
+      onClick: openAIInsights
+    },
+    { 
+      icon: Mic, 
+      label: 'Voice Input',
+      onClick: openVoiceModal
+    },
+    { 
+      icon: FileText, 
+      label: 'Bulk Import',
+      onClick: openBulkModal
+    },
   ];
 
   const categories = [
@@ -101,6 +114,18 @@ function Sidebar() {
     setFilters({
       [filterType]: filters[filterType] === value ? '' : value
     });
+  };
+
+  const handleResetFilters = () => {
+    setFilters({
+      status: '',
+      priority: '',
+      category: '',
+      search: '',
+      startDate: '',
+      endDate: ''
+    });
+    setActiveFilter('all'); // Also reset the active overview filter
   };
 
   const handleOverviewClick = (filter) => {
@@ -151,14 +176,19 @@ function Sidebar() {
           </h3>
           <nav className="space-y-1">
             {aiFeatures.map((item) => (
-              <a
+              <button
                 key={item.label}
-                href="#"
-                className="flex items-center px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (item.onClick) {
+                    item.onClick();
+                  }
+                }}
+                className="w-full flex items-center px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors"
               >
                 <item.icon className="h-4 w-4 mr-3" />
                 {item.label}
-              </a>
+              </button>
             ))}
           </nav>
         </div>
@@ -169,7 +199,19 @@ function Sidebar() {
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
               Filters
             </h3>
-            <Filter className="h-3 w-3 text-gray-400" />
+            <div className="flex items-center space-x-2">
+              <Filter className="h-3 w-3 text-gray-400" />
+              {(filters.priority || filters.category) && (
+                <button
+                  onClick={handleResetFilters}
+                  className="text-xs text-blue-600 hover:text-blue-800 transition-colors flex items-center"
+                  title="Reset all filters"
+                >
+                  <RotateCcw className="h-3 w-3 mr-1" />
+                  Reset
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Priority Filter */}

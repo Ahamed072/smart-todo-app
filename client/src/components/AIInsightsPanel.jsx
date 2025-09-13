@@ -35,12 +35,21 @@ function AIInsightsPanel({ onClose }) {
         return taskDate === dateStr && task.status === 'Completed';
       }).length;
       
+      // Calculate productivity percentage
+      let productivity = 0;
+      if (tasksCreated > 0) {
+        productivity = Math.round((tasksCompleted / tasksCreated) * 100);
+      } else if (tasksCompleted > 0) {
+        // If tasks were completed but not created on this day, show some activity
+        productivity = 50;
+      }
+      
       last7Days.push({
         date: dateStr,
         day: date.toLocaleDateString('en-US', { weekday: 'short' }),
         created: tasksCreated,
         completed: tasksCompleted,
-        productivity: tasksCreated > 0 ? Math.round((tasksCompleted / Math.max(tasksCreated, 1)) * 100) : 0
+        productivity: productivity
       });
     }
     
@@ -398,29 +407,40 @@ function AIInsightsPanel({ onClose }) {
               {/* 7-Day Productivity Chart */}
               <div className="bg-white border border-gray-200 rounded-lg p-6">
                 <h4 className="font-medium text-gray-900 mb-4">Last 7 Days Performance</h4>
-                <div className="space-y-4">
-                  {getDailyProductivityData().map((day, index) => (
-                    <div key={day.date} className="flex items-center space-x-4">
-                      <div className="w-12 text-sm font-medium text-gray-600">{day.day}</div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-sm text-gray-700">Created: {day.created} | Completed: {day.completed}</span>
-                          <span className="text-sm font-medium text-primary-600">{day.productivity}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-3">
-                          <div 
-                            className={`h-3 rounded-full transition-all duration-300 ${
-                              day.productivity >= 80 ? 'bg-green-500' :
-                              day.productivity >= 60 ? 'bg-blue-500' :
-                              day.productivity >= 40 ? 'bg-yellow-500' : 'bg-red-500'
-                            }`}
-                            style={{ width: `${Math.max(day.productivity, 5)}%` }}
-                          ></div>
+                {getDailyProductivityData().every(day => day.created === 0 && day.completed === 0) ? (
+                  <div className="text-center py-8">
+                    <BarChart className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500">No task activity in the last 7 days</p>
+                    <p className="text-sm text-gray-400 mt-1">Create and complete tasks to see your productivity trends</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {getDailyProductivityData().map((day, index) => (
+                      <div key={day.date} className="flex items-center space-x-4">
+                        <div className="w-12 text-sm font-medium text-gray-600">{day.day}</div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm text-gray-700">Created: {day.created} | Completed: {day.completed}</span>
+                            <span className="text-sm font-medium text-primary-600">{day.productivity}%</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                            <div 
+                              className={`h-full rounded-full transition-all duration-500 ease-in-out ${
+                                day.productivity >= 80 ? 'bg-green-500' :
+                                day.productivity >= 60 ? 'bg-blue-500' :
+                                day.productivity >= 40 ? 'bg-yellow-500' : 'bg-red-500'
+                              }`}
+                              style={{ 
+                                width: `${Math.max(day.productivity, 0)}%`,
+                                minWidth: day.productivity > 0 ? '8px' : '0px'
+                              }}
+                            ></div>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Productivity by Period */}
@@ -435,14 +455,17 @@ function AIInsightsPanel({ onClose }) {
                           <span className="text-gray-600">Tasks:</span>
                           <span className="font-medium">{data.completed}/{data.total}</span>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
                           <div 
-                            className={`h-2 rounded-full ${
+                            className={`h-full rounded-full transition-all duration-500 ease-in-out ${
                               data.completionRate >= 80 ? 'bg-green-500' :
                               data.completionRate >= 60 ? 'bg-blue-500' :
                               data.completionRate >= 40 ? 'bg-yellow-500' : 'bg-red-500'
                             }`}
-                            style={{ width: `${Math.max(data.completionRate, 5)}%` }}
+                            style={{ 
+                              width: `${Math.max(data.completionRate, 0)}%`,
+                              minWidth: data.completionRate > 0 ? '6px' : '0px'
+                            }}
                           ></div>
                         </div>
                         <div className="text-center">

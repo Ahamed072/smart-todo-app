@@ -32,17 +32,23 @@ api.interceptors.response.use(
       const isAuthCall = error.config?.url?.includes('/auth/');
       const isOnLoginPage = window.location.pathname === '/login';
       const isLoggingOut = sessionStorage.getItem('loggingOut') === 'true';
+      const isRefreshCall = error.config?.url?.includes('/auth/refresh-token');
       
-      if (!isAuthCall && !isOnLoginPage && !isLoggingOut) {
-        // Only show alert if there are repeated failures
+      if (!isAuthCall && !isOnLoginPage && !isLoggingOut && !isRefreshCall) {
+        // Implement exponential backoff for redirects to prevent spam
         const lastRedirect = sessionStorage.getItem('lastAuthRedirect');
         const now = Date.now();
         
-        if (!lastRedirect || (now - parseInt(lastRedirect)) > 5000) { // 5 second cooldown
+        if (!lastRedirect || (now - parseInt(lastRedirect)) > 30000) { // 30 second cooldown
           sessionStorage.setItem('lastAuthRedirect', now.toString());
           localStorage.removeItem('authToken');
           localStorage.removeItem('user');
-          window.location.href = '/login';
+          // Silent redirect without alerts or popups
+          setTimeout(() => {
+            if (window.location.pathname !== '/login') {
+              window.location.href = '/login';
+            }
+          }, 100);
         }
       }
     }
@@ -79,6 +85,8 @@ export const authAPI = {
   getProfile: () => api.get('/auth/profile'),
   updateProfile: (data) => api.put('/auth/profile', data),
   validateToken: () => api.get('/auth/validate'),
+  refreshToken: () => api.post('/auth/refresh-token'),
+  getStreak: () => api.get('/auth/streak'),
 };
 
 // Tasks API

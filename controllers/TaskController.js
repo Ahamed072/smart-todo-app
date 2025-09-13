@@ -1,5 +1,6 @@
 const Task = require('../models/Task');
 const NotificationService = require('../services/NotificationService');
+const StreakService = require('../services/StreakService');
 
 class TaskController {
   static async getAllTasks(req, res) {
@@ -87,6 +88,14 @@ class TaskController {
       };
 
       const task = await Task.create(taskData);
+
+      // Update user streak for task creation
+      try {
+        await StreakService.updateUserStreak(userId);
+      } catch (streakError) {
+        console.error('Streak update error:', streakError);
+        // Don't fail the request if streak update fails
+      }
 
       // Send notification about new task
       await NotificationService.createInstantNotification(
@@ -184,6 +193,16 @@ class TaskController {
 
       const updatedTask = await Task.update(id, updateData);
 
+      // Update user streak if task was marked as completed
+      if (updates.status === 'Completed' && existingTask.status !== 'Completed') {
+        try {
+          await StreakService.updateUserStreak(req.user.id);
+        } catch (streakError) {
+          console.error('Streak update error:', streakError);
+          // Don't fail the request if streak update fails
+        }
+      }
+
       res.json({
         message: 'Task updated successfully',
         task: updatedTask
@@ -236,6 +255,14 @@ class TaskController {
       }
 
       const updatedTask = await Task.markComplete(id);
+
+      // Update user streak for task completion
+      try {
+        await StreakService.updateUserStreak(req.user.id);
+      } catch (streakError) {
+        console.error('Streak update error:', streakError);
+        // Don't fail the request if streak update fails
+      }
 
       // Send notification about completion
       await NotificationService.createInstantNotification(

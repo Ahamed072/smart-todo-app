@@ -30,14 +30,27 @@ function TaskModal({ task, onClose }) {
 
   useEffect(() => {
     if (task) {
+      // Helper function to format ISO string for datetime-local input
+      const formatForDateTimeLocal = (isoString) => {
+        if (!isoString) return '';
+        const date = new Date(isoString);
+        // Get local date components
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
+      };
+
       setFormData({
         title: task.title || '',
         description: task.description || '',
-        deadline: task.deadline ? new Date(task.deadline).toISOString().slice(0, 16) : '',
+        deadline: formatForDateTimeLocal(task.deadline),
         priority: task.priority || 'Medium',
         category: task.category || 'General',
         status: task.status || 'Pending',
-        reminder_time: task.reminder_time ? new Date(task.reminder_time).toISOString().slice(0, 16) : ''
+        reminder_time: formatForDateTimeLocal(task.reminder_time)
       });
     }
   }, [task]);
@@ -64,13 +77,25 @@ function TaskModal({ task, onClose }) {
     try {
       const enhancement = await enhanceTask(formData.title, formData.description);
       
+      // Helper function to format suggested deadline for datetime-local input
+      const formatSuggestedDeadline = (deadlineString) => {
+        if (!deadlineString) return '';
+        const date = new Date(deadlineString);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
+      };
+      
       setFormData(prev => ({
         ...prev,
         title: enhancement.enhanced_title || prev.title,
         category: enhancement.suggested_category || prev.category,
         priority: enhancement.estimated_priority || prev.priority,
         description: enhancement.suggested_description || prev.description,
-        deadline: enhancement.suggested_deadline ? new Date(enhancement.suggested_deadline).toISOString().slice(0, 16) : prev.deadline
+        deadline: enhancement.suggested_deadline ? formatSuggestedDeadline(enhancement.suggested_deadline) : prev.deadline
       }));
     } catch (error) {
       console.error('Enhancement failed:', error);
@@ -105,11 +130,30 @@ function TaskModal({ task, onClose }) {
     setLoading(true);
     
     try {
+      // Helper function to convert datetime-local string to proper ISO string
+      const formatDateTimeLocal = (dateTimeString) => {
+        if (!dateTimeString) return null;
+        // datetime-local gives us "2025-09-13T14:30"
+        // We need to treat this as the user's local time and preserve it
+        const date = new Date(dateTimeString);
+        // Get timezone offset and adjust to maintain the selected time
+        const timezoneOffset = date.getTimezoneOffset() * 60000;
+        const localDate = new Date(date.getTime() - timezoneOffset);
+        return localDate.toISOString();
+      };
+
       const taskData = {
         ...formData,
-        deadline: formData.deadline || null,
-        reminder_time: formData.reminder_time || null
+        deadline: formatDateTimeLocal(formData.deadline),
+        reminder_time: formatDateTimeLocal(formData.reminder_time)
       };
+      
+      console.log('Submitting task data:', {
+        deadline: formData.deadline,
+        formatted_deadline: taskData.deadline,
+        reminder_time: formData.reminder_time,
+        formatted_reminder: taskData.reminder_time
+      });
       
       if (task) {
         await updateTask(task.id, taskData);

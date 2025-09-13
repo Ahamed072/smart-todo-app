@@ -40,7 +40,7 @@ class AuthController {
         password_hash
       });
 
-      // Generate JWT token
+      // Generate JWT token with 24h expiry (will be refreshed by frontend every 8 minutes)
       const token = jwt.sign(
         { userId: newUser.id, username: newUser.username || newUser.name },
         process.env.JWT_SECRET,
@@ -86,7 +86,7 @@ class AuthController {
         return res.status(401).json({ error: 'Invalid credentials' });
       }
 
-      // Generate JWT token
+      // Generate JWT token with 24h expiry (will be refreshed by frontend every 8 minutes)
       const token = jwt.sign(
         { userId: user.id, username: user.name },
         process.env.JWT_SECRET,
@@ -173,6 +173,41 @@ class AuthController {
     } catch (error) {
       console.error('Token validation error:', error);
       res.status(500).json({ error: 'Token validation failed' });
+    }
+  }
+
+  static async refreshToken(req, res) {
+    try {
+      // Extract user from the existing token
+      const authHeader = req.headers['authorization'];
+      const token = authHeader && authHeader.split(' ')[1];
+      if (!token) {
+        return res.status(401).json({ error: 'Token required' });
+      }
+
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const user = await User.findById(decoded.userId);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      // Generate new token with same payload
+      const newToken = jwt.sign(
+        { userId: user.id, username: user.username || user.name },
+        process.env.JWT_SECRET,
+        { expiresIn: '24h' }
+      );
+
+      res.json({
+        message: 'Token refreshed successfully',
+        token: newToken
+      });
+    } catch (error) {
+      console.error('Token refresh error:', error);
+      if (error.name === 'TokenExpiredError') {
+        return res.status(401).json({ error: 'Token expired' });
+      }
+      res.status(500).json({ error: 'Failed to refresh token' });
     }
   }
 }

@@ -1,6 +1,8 @@
 const cron = require('node-cron');
 const Notification = require('../models/Notification');
 const Task = require('../models/Task');
+const User = require('../models/User');
+const EmailService = require('./EmailService');
 
 class NotificationService {
   constructor() {
@@ -20,6 +22,7 @@ class NotificationService {
       try {
         await this.processPendingNotifications();
         await this.scheduleUpcomingReminders();
+        await this.processTaskReminders(); // Check for tasks with specific reminder times
       } catch (error) {
         console.error('Notification scheduler error:', error);
       }
@@ -161,6 +164,49 @@ class NotificationService {
         });
       }
 
+      // Send email notification if it's a reminder and user has email
+      if (notification.type === 'reminder' && notification.task_id) {
+        try {
+          // Get task and user details
+          const task = await Task.findById(notification.task_id);
+          const user = await User.findById(notification.user_id);
+          
+          if (task && user && user.email) {
+            // Check if it's time to send the reminder (based on reminder_time or deadline)
+            const now = new Date();
+            const reminderTime = task.reminder_time ? new Date(task.reminder_time) : null;
+            const deadline = task.deadline ? new Date(task.deadline) : null;
+            
+            // Send email if:
+            // 1. It has a specific reminder_time and it's now that time
+            // 2. OR it's approaching the deadline (for auto-generated reminders)
+            let shouldSendEmail = false;
+            
+            if (reminderTime) {
+              // Check if current time matches reminder time (within 1 minute tolerance)
+              const timeDiff = Math.abs(now.getTime() - reminderTime.getTime());
+              shouldSendEmail = timeDiff <= 60000; // 1 minute tolerance
+            } else if (deadline) {
+              // For auto-generated reminders, send if within the reminder window
+              const timeUntilDeadline = deadline.getTime() - now.getTime();
+              const hoursUntilDeadline = timeUntilDeadline / (1000 * 60 * 60);
+              
+              // Send if within appropriate time window based on priority
+              const reminderHours = this.getReminderOffsets(task.priority).map(ms => ms / (1000 * 60 * 60));
+              shouldSendEmail = reminderHours.some(hours => Math.abs(hoursUntilDeadline - hours) <= 0.25); // 15 min tolerance
+            }
+            
+            if (shouldSendEmail) {
+              await EmailService.sendTaskReminder(user.email, task);
+              console.log(`📧 Email reminder sent to ${user.email} for task: ${task.title}`);
+            }
+          }
+        } catch (emailError) {
+          console.error('Failed to send email notification:', emailError);
+          // Don't fail the entire notification if email fails
+        }
+      }
+
       console.log(`📧 Notification sent: ${notification.message}`);
       return true;
     } catch (error) {
@@ -206,6 +252,61 @@ class NotificationService {
     } catch (error) {
       console.error('Error creating instant notification:', error);
       throw error;
+    }
+  }
+
+  async processTaskReminders() {
+    try {
+      const now = new Date();
+      // Get all tasks with reminder_time set within the current minute
+      const currentTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes());
+      const nextMinute = new Date(currentTime.getTime() + 60000);
+      
+      // Query tasks that have reminder_time between current minute and next minute
+      const tasksToRemind = await this.getTasksWithReminderTime(currentTime, nextMinute);
+      
+      for (const task of tasksToRemind) {
+        try {
+          // Get user details
+          const user = await User.findById(task.user_id);
+          if (user && user.email) {
+            // Send email reminder
+            await EmailService.sendTaskReminder(user.email, task);
+            
+            // Also create an in-app notification
+            const message = `⏰ Reminder: ${task.title} is due ${this.formatDeadline(new Date(task.deadline))}`;
+            await this.createInstantNotification(task.user_id, task.id, message, 'reminder');
+            
+            console.log(`✅ Processed reminder for task: ${task.title} (user: ${user.email})`);
+          }
+        } catch (taskError) {
+          console.error(`Failed to process reminder for task ${task.id}:`, taskError);
+        }
+      }
+    } catch (error) {
+      console.error('Error processing task reminders:', error);
+    }
+  }
+
+  async getTasksWithReminderTime(startTime, endTime) {
+    try {
+      // This would need to be implemented in the Task model
+      // For now, let's use a simple query approach
+      const db = require('../models/Database');
+      
+      const tasks = await db.query(
+        `SELECT * FROM tasks 
+         WHERE reminder_time IS NOT NULL 
+         AND reminder_time >= ? 
+         AND reminder_time < ? 
+         AND status != 'Completed'`,
+        [startTime.toISOString(), endTime.toISOString()]
+      );
+      
+      return tasks;
+    } catch (error) {
+      console.error('Error getting tasks with reminder time:', error);
+      return [];
     }
   }
 

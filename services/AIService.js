@@ -1,47 +1,102 @@
+// Use built-in fetch (Node.js 18+) or require node-fetch for older versions
+let fetch;
+try {
+  fetch = globalThis.fetch;
+  if (!fetch) {
+    fetch = require('node-fetch');
+  }
+} catch (error) {
+  fetch = require('node-fetch');
+}
+
 class AIService {
   constructor() {
     this.apiKey = null;
-    this.baseUrl = 'https://openrouter.ai/api/v1';
-    this.model = 'meta-llama/llama-3.1-8b-instruct'; // Free model (offer ongoing)
+    this.geminiApiKey = null;
+    this.openRouterApiKey = null;
+    this.preferredProvider = 'gemini'; // Use Gemini as primary provider
+    this.openRouterBaseUrl = 'https://openrouter.ai/api/v1';
+    this.geminiBaseUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
+    this.openRouterModel = 'meta-llama/llama-3.1-8b-instruct';
     this.initialize();
   }
 
   initialize() {
     try {
-      // Use the OpenRouter-style API key from .env
-      const possibleKeys = [
-        process.env.OPENROUTER_API_KEY,
-        process.env.AI_API_KEY,
-        process.env.GEMINI_API_KEY
-      ];
+      // Initialize API keys
+      this.geminiApiKey = process.env.GEMINI_API_KEY;
+      this.openRouterApiKey = process.env.OPENROUTER_API_KEY;
 
-      this.apiKey = possibleKeys.find(key => key && key !== 'your-gemini-api-key-here');
-
-      if (!this.apiKey) {
-        console.warn('⚠️  AI API key not configured. AI features will use mock responses.');
+      // Set primary API key based on availability and preference
+      if (this.geminiApiKey && this.geminiApiKey !== 'your-gemini-api-key-here') {
+        this.apiKey = this.geminiApiKey;
+        this.preferredProvider = 'gemini';
+        console.log('🤖 AI Service initialized with Google Gemini Flash');
+      } else if (this.openRouterApiKey && this.openRouterApiKey !== 'your-openrouter-api-key-here') {
+        this.apiKey = this.openRouterApiKey;
+        this.preferredProvider = 'openrouter';
+        console.log('🤖 AI Service initialized with OpenRouter model:', this.openRouterModel);
+      } else {
+        console.warn('⚠️  No AI API key configured. AI features will use mock responses.');
         return;
       }
 
-      console.log('🤖 AI Service initialized with model:', this.model);
     } catch (error) {
       console.error('AI Service initialization failed:', error);
     }
   }
 
-  async makeRequest(messages) {
+  async makeGeminiRequest(prompt) {
     try {
-      console.log('🔑 Making AI request with model:', this.model);
+      console.log('🔮 Making Gemini API request...');
       
-      const response = await fetch(`${this.baseUrl}/chat/completions`, {
+      const response = await fetch(`${this.geminiBaseUrl}?key=${this.geminiApiKey}`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: prompt
+            }]
+          }]
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Gemini API Error ${response.status}:`, errorText);
+        throw new Error(`Gemini API request failed: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+        return data.candidates[0].content.parts[0].text;
+      } else {
+        throw new Error('Invalid response format from Gemini API');
+      }
+    } catch (error) {
+      console.error('Gemini API request failed:', error);
+      throw error;
+    }
+  }
+
+  async makeOpenRouterRequest(messages) {
+    try {
+      console.log('🔑 Making OpenRouter API request with model:', this.openRouterModel);
+      
+      const response = await fetch(`${this.openRouterBaseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.openRouterApiKey}`,
           'Content-Type': 'application/json',
           'HTTP-Referer': 'http://localhost:3000',
           'X-Title': 'Smart AI Todo App'
         },
         body: JSON.stringify({
-          model: this.model,
+          model: this.openRouterModel,
           messages: messages,
           temperature: 0.7,
           max_tokens: 1000
@@ -50,12 +105,44 @@ class AIService {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`API Error ${response.status}:`, errorText);
-        throw new Error(`API request failed: ${response.status} - ${errorText}`);
+        console.error(`OpenRouter API Error ${response.status}:`, errorText);
+        throw new Error(`OpenRouter API request failed: ${response.status} - ${errorText}`);
       }
 
       const data = await response.json();
       return data.choices[0].message.content;
+    } catch (error) {
+      console.error('OpenRouter API request failed:', error);
+      throw error;
+    }
+  }
+
+  async makeRequest(messagesOrPrompt) {
+    try {
+      if (this.preferredProvider === 'gemini' && this.geminiApiKey) {
+        // Convert messages format to single prompt for Gemini
+        let prompt;
+        if (Array.isArray(messagesOrPrompt)) {
+          prompt = messagesOrPrompt.map(msg => msg.content).join('\n\n');
+        } else {
+          prompt = messagesOrPrompt;
+        }
+        
+        try {
+          return await this.makeGeminiRequest(prompt);
+        } catch (error) {
+          console.warn('🔄 Gemini API failed, falling back to OpenRouter...');
+          if (this.openRouterApiKey) {
+            return await this.makeOpenRouterRequest(Array.isArray(messagesOrPrompt) ? messagesOrPrompt : [{ role: 'user', content: messagesOrPrompt }]);
+          }
+          throw error;
+        }
+      } else if (this.preferredProvider === 'openrouter' && this.openRouterApiKey) {
+        const messages = Array.isArray(messagesOrPrompt) ? messagesOrPrompt : [{ role: 'user', content: messagesOrPrompt }];
+        return await this.makeOpenRouterRequest(messages);
+      } else {
+        throw new Error('No API provider available');
+      }
     } catch (error) {
       console.error('AI API request failed:', error);
       throw error;

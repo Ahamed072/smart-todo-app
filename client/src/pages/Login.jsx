@@ -45,7 +45,7 @@ function Login() {
         });
       }
 
-      // Redirect to dashboard  
+      // Redirect to dashboard immediately after successful auth
       navigate('/', { replace: true });
     } catch (error) {
       setError(error.message);
